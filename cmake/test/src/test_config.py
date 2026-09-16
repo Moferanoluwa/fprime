@@ -4,6 +4,8 @@
 # Basic CMake tests.
 #
 ####
+import platform
+
 import pytest
 from . import cmake
 from . import settings
@@ -89,6 +91,22 @@ _4 = cmake.get_build(
     make_targets=[],
 )
 
+_5 = cmake.get_build(
+    "CONFIG_SHARED_BUILD",
+    settings.DATA_DIR / "TestConfigDeployment",
+    {
+        "FPRIME_FRAMEWORK_PATH": settings.FRAMEWORK_PATH,
+        "FPRIME_PROJECT_ROOT": settings.DATA_DIR,
+        "FPRIME_LIBRARY_LOCATIONS": ";".join(
+            [
+                str(settings.DATA_DIR / "test-config-library"),
+            ]
+        ),
+        "BUILD_SHARED_LIBS": "ON",
+    },
+    make_targets=["library_global_config"],
+)
+
 
 def test_fprime_model_override(CONFIG_BUILD):
     """Test that the config override works"""
@@ -118,6 +136,25 @@ def test_library_new_config(CONFIG_BUILD):
 def test_library_global_implicit_config(CONFIG_BUILD):
     """Test that a GLOBAL_IMPLICIT_DEPENDENCY library config is consumed without an explicit DEPENDS"""
     cmake.assert_process_success(CONFIG_BUILD, targets=["TestLibraryGlobalConfig"])
+
+
+def test_config_sources_only_forced_static(CONFIG_SHARED_BUILD):
+    """A config module with SOURCES but no AUTOCODER_INPUTS must still be forced STATIC
+
+    Regression test: fprime_add_config_build_target's STATIC-enforcement check tested the
+    directive name SOURCE (singular, never actually passed by any caller) instead of SOURCES,
+    so a config module supplying SOURCES without AUTOCODER_INPUTS followed BUILD_SHARED_LIBS
+    like any other library instead of being forced static. In-tree config modules all also
+    supply AUTOCODER_INPUTS, which masked this. library_global_config (test-config-library)
+    supplies only SOURCES, so it exercises the check on its own.
+    """
+    cmake.assert_process_success(CONFIG_SHARED_BUILD, targets=["library_global_config"])
+    lib_dir = CONFIG_SHARED_BUILD["build"] / "lib" / platform.system()
+    shared_ext = "dylib" if platform.system() == "Darwin" else "so"
+    static_path = lib_dir / "liblibrary_global_config.a"
+    shared_path = lib_dir / f"liblibrary_global_config.{shared_ext}"
+    assert static_path.exists(), f"Expected a STATIC config library at {static_path}"
+    assert not shared_path.exists(), f"Config module was built SHARED at {shared_path}"
 
 
 def test_base_config_deprecated(CONFIG_DEPRECATED_BASE_CONFIG_BUILD):
