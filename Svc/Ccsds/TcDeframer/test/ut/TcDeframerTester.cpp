@@ -153,6 +153,9 @@ void TcDeframerTester::testInvalidCrc() {
     Fw::Buffer buffer = this->assembleFrameBuffer(data, dataLength);
     // Increment CRC to corrupt its value
     buffer.getData()[TCHeader::SERIALIZED_SIZE + dataLength + 1]++;
+    const U16 transmittedCrc = static_cast<U16>((buffer.getData()[TCHeader::SERIALIZED_SIZE + dataLength] << 8) |
+                                                buffer.getData()[TCHeader::SERIALIZED_SIZE + dataLength + 1]);
+    const U16 computedCrc = Ccsds::Utils::CRC16::compute(buffer.getData(), TCHeader::SERIALIZED_SIZE + dataLength);
     ComCfg::FrameContext nullContext;
 
     this->setComponentState();
@@ -167,6 +170,7 @@ void TcDeframerTester::testInvalidCrc() {
     ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getSize(), buffer.getSize());
     ASSERT_EVENTS_SIZE(1);  // exactly 1 event emitted
     ASSERT_EVENTS_InvalidCrc_SIZE(1);
+    ASSERT_EVENTS_InvalidCrc(0, transmittedCrc, computedCrc);
 }
 
 void TcDeframerTester::setComponentState(U16 scid, U8 vcid, U8 sequenceNumber, bool acceptAllVcid) {
