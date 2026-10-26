@@ -115,6 +115,9 @@ void SpacePacketFramerTester::testNominalFraming() {
     U16 extractedSeqCount = header.get_packetSequenceControl() & SpacePacketSubfields::SeqCountMask;
     ASSERT_EQ(extractedSeqCount, seqCount);
 
+    // Verify packet data length (CCSDS: number of octets in the data field minus 1)
+    ASSERT_EQ(header.get_packetDataLength(), static_cast<U16>(sizeof(payload) - 1));
+
     // Check that the payload is present at the correct offset
     for (U32 i = 0; i < sizeof(payload); ++i) {
         ASSERT_EQ(outBuffer.getData()[SpacePacketHeader::SERIALIZED_SIZE + i], payload[i]);
