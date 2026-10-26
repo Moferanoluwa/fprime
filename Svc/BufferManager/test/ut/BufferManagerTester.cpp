@@ -185,6 +185,8 @@ void BufferManagerTester::oneBufferSize() {
     // should send back empty buffer
     Fw::Buffer noBuff = this->invoke_to_bufferGetCallee(0, BIN1_BUFFER_SIZE);
     ASSERT_EQ(1, this->component.m_noBuffs);
+    ASSERT_EVENTS_NoBuffsAvailable_SIZE(1);
+    ASSERT_EVENTS_NoBuffsAvailable(0, BIN1_BUFFER_SIZE);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
@@ -229,6 +231,7 @@ void BufferManagerTester::oneBufferSize() {
     // should reject empty buffer
     this->invoke_to_bufferSendIn(0, noBuff);
     ASSERT_EQ(1, this->component.m_emptyBuffs);
+    ASSERT_EVENTS_NullEmptyBuffer_SIZE(1);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
@@ -286,6 +289,8 @@ void BufferManagerTester::multBuffSize() {
     // should send back empty buffer
     Fw::Buffer noBuff = this->invoke_to_bufferGetCallee(0, BIN1_BUFFER_SIZE);
     ASSERT_EQ(1, this->component.m_noBuffs);
+    ASSERT_EVENTS_NoBuffsAvailable_SIZE(1);
+    ASSERT_EVENTS_NoBuffsAvailable(0, BIN1_BUFFER_SIZE);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
@@ -318,6 +323,7 @@ void BufferManagerTester::multBuffSize() {
     // should reject empty buffer
     this->invoke_to_bufferSendIn(0, noBuff);
     ASSERT_EQ(1, this->component.m_emptyBuffs);
+    ASSERT_EVENTS_NullEmptyBuffer_SIZE(1);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
@@ -355,6 +361,8 @@ void BufferManagerTester::multBuffSize() {
     // should send back empty buffer
     noBuff = this->invoke_to_bufferGetCallee(0, BIN1_BUFFER_SIZE);
     ASSERT_EQ(2, this->component.m_noBuffs);
+    ASSERT_EVENTS_NoBuffsAvailable_SIZE(1);
+    ASSERT_EVENTS_NoBuffsAvailable(0, BIN1_BUFFER_SIZE);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
@@ -380,6 +388,7 @@ void BufferManagerTester::multBuffSize() {
     // should reject empty buffer
     this->invoke_to_bufferSendIn(0, noBuff);
     ASSERT_EQ(2, this->component.m_emptyBuffs);
+    ASSERT_EVENTS_NullEmptyBuffer_SIZE(1);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
@@ -414,6 +423,8 @@ void BufferManagerTester::multBuffSize() {
     // should send back empty buffer
     noBuff = this->invoke_to_bufferGetCallee(0, BIN2_BUFFER_SIZE);
     ASSERT_EQ(3, this->component.m_noBuffs);
+    ASSERT_EVENTS_NoBuffsAvailable_SIZE(1);
+    ASSERT_EVENTS_NoBuffsAvailable(0, BIN2_BUFFER_SIZE);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
@@ -439,6 +450,7 @@ void BufferManagerTester::multBuffSize() {
     // should reject empty buffer
     this->invoke_to_bufferSendIn(0, noBuff);
     ASSERT_EQ(3, this->component.m_emptyBuffs);
+    ASSERT_EVENTS_NullEmptyBuffer_SIZE(1);
 
     // check telemetry
     this->invoke_to_schedIn(0, 0);
