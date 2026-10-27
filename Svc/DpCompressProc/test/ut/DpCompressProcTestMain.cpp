@@ -71,6 +71,7 @@ TEST(Nominal, MaximalCompressible) {
         Svc::AbstractState::Chunk(Svc::AbstractState::MAXIMAL_COMPRESSED, 0x55),
         Svc::AbstractState::Chunk(Svc::AbstractState::MAXIMAL_COMPRESSED, 0x23)};
     Svc::Testers::procRequest.testState.abstractState.set_chunk_state(chunk_size, chunks);
+    Svc::Testers::procRequest.testState.abstractState.param_enabled_ = true;
 
     Svc::Testers::procRequest.CompressTest();
 }
@@ -92,6 +93,7 @@ TEST(Nominal, MixedFirstCompressible) {
                                                      Svc::AbstractState::Chunk(Svc::AbstractState::UNCOMPRESSED, 0x55),
                                                      Svc::AbstractState::Chunk(Svc::AbstractState::UNCOMPRESSED, 0x23)};
     Svc::Testers::procRequest.testState.abstractState.set_chunk_state(chunk_size, chunks);
+    Svc::Testers::procRequest.testState.abstractState.param_enabled_ = true;
 
     Svc::Testers::procRequest.CompressTest();
 }

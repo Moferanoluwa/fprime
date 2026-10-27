@@ -303,8 +303,6 @@ void DpCompressProcTester::test_chunks_disabled(const FwSizeStoreType chunk_size
                                                 std::vector<AbstractState::Chunk> chunks) {
     Fw::Buffer container_buf = this->abstractState.build_compress_buffer(chunk_size, chunks);
 
-    test_chunks_helper(chunk_size, chunks, container_buf);
-
     this->clearHistory();
 
     abstractState.success_ = false;
@@ -315,10 +313,17 @@ void DpCompressProcTester::test_chunks_disabled(const FwSizeStoreType chunk_size
     this->component.loadParameters();
 
     const FwSizeType pre_comp_size = container_buf.getSize();
+    // The trailing data hash is left out: build_compress_buffer never writes it
+    const FwSizeType written_size = Fw::DpContainer::DATA_OFFSET + chunk_size * chunks.size();
+    const std::vector<U8> pre_comp_bytes(container_buf.getData(), container_buf.getData() + written_size);
 
     this->invoke_to_procRequest(0, container_buf);
 
+    // Compression bypassed: nothing compressed or reported, container left as-is
+    ASSERT_from_compressChunk_SIZE(0);
+    ASSERT_EVENTS_SIZE(0);
     ASSERT_EQ(container_buf.getSize(), pre_comp_size);
+    ASSERT_EQ(std::memcmp(container_buf.getData(), pre_comp_bytes.data(), written_size), 0);
 
     delete[] container_buf.getData();
 }
