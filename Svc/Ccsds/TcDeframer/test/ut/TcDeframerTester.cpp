@@ -42,6 +42,28 @@ void TcDeframerTester::testDataReturn() {
     ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).context, nullContext);
 }
 
+void TcDeframerTester::testInvalidPacket() {
+    U8 data[TCHeader::SERIALIZED_SIZE + TCTrailer::SERIALIZED_SIZE] = {0};
+    ComCfg::FrameContext nullContext;
+    // Too short for a header, then the largest size that still cannot hold a header, a data byte, and a trailer
+    const FwSizeType sizes[] = {TCHeader::SERIALIZED_SIZE - 1, sizeof(data)};
+
+    this->setComponentState();
+    for (FwSizeType size : sizes) {
+        this->clearHistory();
+        Fw::Buffer buffer(data, size);
+        this->invoke_to_dataIn(0, buffer, nullContext);
+
+        // Too-short buffer is dropped before any header field is examined
+        ASSERT_from_dataOut_SIZE(0);
+        ASSERT_from_dataReturnOut_SIZE(1);
+        ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getData(), data);
+        ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getSize(), size);
+        ASSERT_EVENTS_SIZE(1);  // exactly 1 event emitted
+        ASSERT_EVENTS_InvalidPacket_SIZE(1);
+    }
+}
+
 void TcDeframerTester::testNominalDeframing() {
     // Frame: 5 bytes (header) + bytes (data) + 2 bytes (trailer)
     U16 scId = static_cast<U16>(STest::Random::lowerUpper(0, 0x3FF));       // random 10 bit Spacecraft ID
@@ -144,6 +166,29 @@ void TcDeframerTester::testInvalidLengthToken() {
     ASSERT_EVENTS_InvalidFrameLength(
         0, static_cast<U16>(incorrectLengthToken + 1),
         static_cast<FwSizeType>(dataLength + TCHeader::SERIALIZED_SIZE + TCTrailer::SERIALIZED_SIZE));
+}
+
+void TcDeframerTester::testUndersizedLengthToken() {
+    U8 data[1] = {0};
+    // The longest declared frame that is still too short to hold a header and a trailer
+    const U16 undersizedLength = static_cast<U16>(TCHeader::SERIALIZED_SIZE + TCTrailer::SERIALIZED_SIZE - 1);
+
+    Fw::Buffer buffer = this->assembleFrameBuffer(data, sizeof(data));
+    buffer.getData()[3] = static_cast<U8>(undersizedLength - 1);  // length token is length - 1
+    ComCfg::FrameContext nullContext;
+
+    this->setComponentState();
+    this->invoke_to_dataIn(0, buffer, nullContext);
+
+    ASSERT_from_dataOut_SIZE(0);
+    ASSERT_from_dataReturnOut_SIZE(1);  // invalid buffer was deallocated
+    ASSERT_FROM_PORT_HISTORY_SIZE(2);   // two port calls, one for dataReturn, one for errorNotify
+    ASSERT_from_errorNotify(0, Svc::Ccsds::FrameError::TC_INVALID_LENGTH);
+    ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getData(), buffer.getData());
+    ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getSize(), buffer.getSize());
+    ASSERT_EVENTS_SIZE(1);                     // exactly 1 event emitted
+    ASSERT_EVENTS_InvalidFrameLength_SIZE(1);  // event was emitted for invalid frame length
+    ASSERT_EVENTS_InvalidFrameLength(0, undersizedLength, static_cast<FwSizeType>(buffer.getSize()));
 }
 
 void TcDeframerTester::testInvalidCrc() {

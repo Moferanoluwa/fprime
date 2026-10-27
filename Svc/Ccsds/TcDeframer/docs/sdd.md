@@ -34,6 +34,7 @@ void configure(U16 vcId, U16 spacecraftId, bool acceptAllVcid);
 
 | Name | Severity | Description |
 |---|---|---|
+| InvalidPacket | `warning low` | Invalid packet received that will be dropped |
 | InvalidSpacecraftId | `warning low` | Deframing received an invalid SCID |
 | InvalidFrameLength | `warning high` | Deframing received an invalid frame length |
 | InvalidVcId | `activity low` | Deframing received an invalid VCID |

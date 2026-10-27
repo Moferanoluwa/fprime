@@ -12,6 +12,11 @@ TEST(TcDeframer, testDataReturn) {
     tester.testDataReturn();
 }
 
+TEST(TcDeframer, testInvalidPacket) {
+    Svc::Ccsds::TcDeframerTester tester;
+    tester.testInvalidPacket();
+}
+
 TEST(TcDeframer, testNominalDeframing) {
     Svc::Ccsds::TcDeframerTester tester;
     tester.testNominalDeframing();
@@ -30,6 +35,11 @@ TEST(TcDeframer, testInvalidVcId) {
 TEST(TcDeframer, testInvalidLengthToken) {
     Svc::Ccsds::TcDeframerTester tester;
     tester.testInvalidLengthToken();
+}
+
+TEST(TcDeframer, testUndersizedLengthToken) {
+    Svc::Ccsds::TcDeframerTester tester;
+    tester.testUndersizedLengthToken();
 }
 
 TEST(TcDeframer, testInvalidCrc) {
