@@ -42,6 +42,24 @@ void TcDeframerTester::testDataReturn() {
     ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).context, nullContext);
 }
 
+void TcDeframerTester::testInvalidPacket() {
+    // Largest buffer that still cannot hold a header, a data byte, and a trailer
+    U8 data[TCHeader::SERIALIZED_SIZE + TCTrailer::SERIALIZED_SIZE] = {0};
+    Fw::Buffer buffer(data, sizeof(data));
+    ComCfg::FrameContext nullContext;
+
+    this->setComponentState();
+    this->invoke_to_dataIn(0, buffer, nullContext);
+
+    // Too-short buffer is dropped before any header field is examined
+    ASSERT_from_dataOut_SIZE(0);
+    ASSERT_from_dataReturnOut_SIZE(1);
+    ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getData(), data);
+    ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).data.getSize(), sizeof(data));
+    ASSERT_EVENTS_SIZE(1);  // exactly 1 event emitted
+    ASSERT_EVENTS_InvalidPacket_SIZE(1);
+}
+
 void TcDeframerTester::testNominalDeframing() {
     // Frame: 5 bytes (header) + bytes (data) + 2 bytes (trailer)
     U16 scId = static_cast<U16>(STest::Random::lowerUpper(0, 0x3FF));       // random 10 bit Spacecraft ID

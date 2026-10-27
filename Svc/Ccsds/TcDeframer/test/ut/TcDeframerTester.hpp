@@ -48,6 +48,7 @@ class TcDeframerTester final : public TcDeframerGTestBase {
     void testInvalidVcId();
     void testInvalidLengthToken();
     void testInvalidCrc();
+    void testInvalidPacket();
 
   private:
     // ----------------------------------------------------------------------

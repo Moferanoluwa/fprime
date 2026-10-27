@@ -37,6 +37,11 @@ TEST(TcDeframer, testInvalidCrc) {
     tester.testInvalidCrc();
 }
 
+TEST(TcDeframer, testInvalidPacket) {
+    Svc::Ccsds::TcDeframerTester tester;
+    tester.testInvalidPacket();
+}
+
 int main(int argc, char** argv) {
     STest::Random::seed();
     ::testing::InitGoogleTest(&argc, argv);
