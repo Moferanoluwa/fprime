@@ -315,10 +315,15 @@ void DpCompressProcTester::test_chunks_disabled(const FwSizeStoreType chunk_size
     this->component.loadParameters();
 
     const FwSizeType pre_comp_size = container_buf.getSize();
+    const std::vector<U8> pre_comp_bytes(container_buf.getData(), container_buf.getData() + pre_comp_size);
 
     this->invoke_to_procRequest(0, container_buf);
 
+    // Compression bypassed: nothing compressed or reported, container left as-is
+    ASSERT_from_compressChunk_SIZE(0);
+    ASSERT_EVENTS_SIZE(0);
     ASSERT_EQ(container_buf.getSize(), pre_comp_size);
+    ASSERT_EQ(std::memcmp(container_buf.getData(), pre_comp_bytes.data(), pre_comp_size), 0);
 
     delete[] container_buf.getData();
 }
