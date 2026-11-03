@@ -7,6 +7,7 @@
 #include "TmFramerTester.hpp"
 #include "Svc/Ccsds/Types/TMHeaderSerializableAc.hpp"
 #include "Svc/Ccsds/Types/TMTrailerSerializableAc.hpp"
+#include "Svc/Ccsds/Utils/CRC16.hpp"
 #include "Svc/Ccsds/Utils/IdlePacket.hpp"
 
 namespace Svc {
@@ -18,7 +19,9 @@ namespace Ccsds {
 // ----------------------------------------------------------------------
 
 TmFramerTester ::TmFramerTester()
-    : TmFramerGTestBase("TmFramerTester", TmFramerTester::MAX_HISTORY_SIZE), component("TmFramer") {
+    : TmFramerGTestBase("TmFramerTester", TmFramerTester::MAX_HISTORY_SIZE),
+      component("TmFramer"),
+      m_returnFrameDuringDataOut(false) {
     this->initComponents();
     this->connectPorts();
 }
@@ -83,6 +86,24 @@ void TmFramerTester ::testNominalFraming() {
     for (FwSizeType i = 0; i < sizeof(bufferData); ++i) {
         ASSERT_EQ(outBuffer.getData()[TMHeader::SERIALIZED_SIZE + i], bufferData[i]) << "Data mismatch at index " << i;
     }
+
+    // Header fields that are the same in every frame
+    ASSERT_EQ(outBuffer.getData()[0] >> 6, 0);    // Transfer Frame Version Number
+    ASSERT_EQ(outBuffer.getData()[1] & 0x1, 0);   // Operational Control Field Flag
+    ASSERT_EQ(outBuffer.getData()[4] >> 3, 0x3);  // Secondary Header, Sync, Packet Order flags 0, Segment Length 0b11
+
+    // The trailer holds the CRC of everything before it (Standard 4.1.6)
+    const FwSizeType trailerOffset = expectedFrameSize - TMTrailer::SERIALIZED_SIZE;
+    const U16 expectedCrc = Utils::CRC16::compute(outBuffer.getData(), static_cast<U32>(trailerOffset));
+    ASSERT_EQ(outBuffer.getData()[trailerOffset], static_cast<U8>(expectedCrc >> 8));
+    ASSERT_EQ(outBuffer.getData()[trailerOffset + 1], static_cast<U8>(expectedCrc & 0xFF));
+    // The framer shares CRC16 with this check, so also pin it to the published CRC-CCITT check value
+    const U8 checkInput[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9'};
+    ASSERT_EQ(Utils::CRC16::compute(checkInput, static_cast<U32>(sizeof(checkInput))), 0x29B1);
+
+    // The input buffer goes back to its sender
+    ASSERT_from_dataReturnOut_SIZE(1);
+    ASSERT_from_dataReturnOut(0, buffer, defaultContext);
 }
 
 void TmFramerTester ::testSeqCountWrapAround() {
@@ -186,6 +207,53 @@ void TmFramerTester ::testPartialDataFieldAsserts() {
         Fw::Buffer buffer(bufferData, wrongSize);
         this->component.m_bufferState = TmFramer::BufferOwnershipState::OWNED;
         ASSERT_DEATH_IF_SUPPORTED(this->invoke_to_dataIn(0, buffer, context), "TmFramer.cpp");
+    }
+}
+
+void TmFramerTester ::testContextCarriedThrough() {
+    U8 bufferData[TmFramer::TmPayloadCapacity];
+    Fw::Buffer buffer(bufferData, sizeof(bufferData));
+    this->fillDataField(buffer);
+    ComCfg::FrameContext context;
+    context.set_vcId(7);           // not the default, and the largest that fits the TM header's 3 bit field
+    context.set_comQueueIndex(2);  // not the default: ComCfg.fpp says other components shall not modify it
+
+    this->invoke_to_dataIn(0, buffer, context);
+
+    ASSERT_from_dataOut_SIZE(1);
+    ASSERT_from_dataOut(0, Fw::Buffer(this->component.m_frameBuffer, sizeof(this->component.m_frameBuffer)), context);
+    U8* const frame = this->fromPortHistory_dataOut->at(0).data.getData();
+    ASSERT_EQ(this->getFrameVcId(frame), 7);
+    ASSERT_EQ(this->getFrameScId(frame), static_cast<U16>(ComCfg::SpacecraftId));  // the VCID stays in its own field
+    ASSERT_from_dataReturnOut_SIZE(1);
+    ASSERT_from_dataReturnOut(0, buffer, context);
+}
+
+void TmFramerTester ::testFrameReturnedDuringDataOut() {
+    // Svc::ComStub with a synchronous driver gives the frame back before its dataOut call ends
+    U8 bufferData[TmFramer::TmPayloadCapacity];
+    Fw::Buffer buffer(bufferData, sizeof(bufferData));
+    this->fillDataField(buffer);
+    ComCfg::FrameContext context;
+    this->m_returnFrameDuringDataOut = true;
+
+    this->invoke_to_dataIn(0, buffer, context);
+
+    // The framer has the frame back, so it can take the next one
+    ASSERT_EQ(this->component.m_bufferState, TmFramer::BufferOwnershipState::OWNED);
+    this->invoke_to_dataIn(0, buffer, context);
+    ASSERT_from_dataOut_SIZE(2);
+    ASSERT_from_dataReturnOut_SIZE(2);
+}
+
+// ----------------------------------------------------------------------
+// Handlers for typed from ports
+// ----------------------------------------------------------------------
+
+void TmFramerTester ::from_dataOut_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::FrameContext& context) {
+    this->pushFromPortEntry_dataOut(data, context);
+    if (this->m_returnFrameDuringDataOut) {
+        this->invoke_to_dataReturnIn(0, data, context);
     }
 }
 

@@ -50,6 +50,16 @@ class TmFramerTester final : public TmFramerGTestBase {
     void testBufferOwnershipState();
     void testFirstHeaderPointerFromContext();
     void testPartialDataFieldAsserts();
+    void testContextCarriedThrough();
+    void testFrameReturnedDuringDataOut();
+
+  private:
+    // ----------------------------------------------------------------------
+    // Handlers for typed from ports
+    // ----------------------------------------------------------------------
+
+    //! Record the frame and, if m_returnFrameDuringDataOut is set, return it before the dataOut call ends
+    void from_dataOut_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::FrameContext& context) override;
 
   private:
     // ----------------------------------------------------------------------
@@ -78,6 +88,9 @@ class TmFramerTester final : public TmFramerGTestBase {
 
     //! The component under test
     TmFramer component;
+
+    //! Whether from_dataOut_handler returns the frame to the component
+    bool m_returnFrameDuringDataOut;
 };
 
 }  // namespace Ccsds

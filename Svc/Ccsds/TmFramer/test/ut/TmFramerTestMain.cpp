@@ -46,6 +46,16 @@ TEST(TmFramer, testPartialDataFieldAsserts) {
     tester.testPartialDataFieldAsserts();
 }
 
+TEST(TmFramer, testContextCarriedThrough) {
+    Svc::Ccsds::TmFramerTester tester;
+    tester.testContextCarriedThrough();
+}
+
+TEST(TmFramer, testFrameReturnedDuringDataOut) {
+    Svc::Ccsds::TmFramerTester tester;
+    tester.testFrameReturnedDuringDataOut();
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
