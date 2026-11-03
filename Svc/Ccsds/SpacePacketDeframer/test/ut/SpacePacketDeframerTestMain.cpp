@@ -22,6 +22,11 @@ TEST(SpacePacketDeframer, testDeframingIncorrectLength) {
     tester.testDeframingIncorrectLength();
 }
 
+TEST(SpacePacketDeframer, testPacketShorterThanBuffer) {
+    Svc::Ccsds::SpacePacketDeframerTester tester;
+    tester.testPacketShorterThanBuffer();
+}
+
 TEST(SpacePacketDeframer, testPacketDataLengthMaxU16Overflow) {
     Svc::Ccsds::SpacePacketDeframerTester tester;
     tester.testPacketDataLengthMaxU16Overflow();

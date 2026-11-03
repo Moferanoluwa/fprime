@@ -79,6 +79,8 @@ void SpacePacketDeframerTester ::testNominalDeframing() {
     ASSERT_EQ(context.get_sequenceCount(), seqCount);
     ASSERT_EQ(context.get_hasSecHdr(), hasSecHdr);
     ASSERT_EQ(context.get_sequenceFlags(), seqFlags);
+    // Validation gets the same APID, mapped as above, and the full 14 bit sequence count
+    ASSERT_from_validateApidSeqCount(0, context.get_apid(), seqCount);
 
     ASSERT_EVENTS_SIZE(0);  // No events should be generated in the nominal case
 }
@@ -88,11 +90,14 @@ void SpacePacketDeframerTester ::testDeframingIncorrectLength() {
     U16 seqCount = static_cast<U16>(STest::Random::lowerUpper(0, 0x3FFF));  // random 14 bit sequence count
     U16 realDataLength =
         static_cast<U16>(STest::Random::lowerUpper(1, MAX_TEST_PACKET_DATA_SIZE));  // bytes of data, random length
-    U16 invalidLengthToken =
-        static_cast<U16>(realDataLength + 1);  // Length token is greater than actual data available
+    // Length token is length - 1, so this declares one byte more than is available: the shortest rejected length
+    U16 invalidLengthToken = realDataLength;
     U8 data[realDataLength];
 
-    Fw::Buffer buffer = this->assemblePacket(apid, seqCount, invalidLengthToken, data, realDataLength);
+    Fw::Buffer packet = this->assemblePacket(apid, seqCount, invalidLengthToken, data, realDataLength);
+    // TcDeframer's buffer has capacity past the packet, where the frame's CRC sits
+    Fw::Buffer buffer(this->m_packetBuffer, sizeof(this->m_packetBuffer));
+    buffer.setSize(packet.getSize());
     ComCfg::FrameContext nullContext;
 
     this->invoke_to_dataIn(0, buffer, nullContext);
@@ -104,7 +109,7 @@ void SpacePacketDeframerTester ::testDeframingIncorrectLength() {
     ASSERT_FROM_PORT_HISTORY_SIZE(2);  // two port calls, one for dataReturn and one for errorNotify
     ASSERT_from_errorNotify(0, Svc::Ccsds::FrameError::SP_INVALID_LENGTH);
     Fw::Buffer returnedBuffer = this->fromPortHistory_dataReturnOut->at(0).data;
-    ASSERT_EQ(returnedBuffer.getSize(), buffer.getSize());
+    ASSERT_EQ(returnedBuffer.getSize(), packet.getSize());
     ASSERT_EQ(this->fromPortHistory_dataReturnOut->at(0).context, nullContext);  // Data should be the same as input
 
     // Event logging failure
@@ -112,6 +117,30 @@ void SpacePacketDeframerTester ::testDeframingIncorrectLength() {
     ASSERT_EVENTS_InvalidLength_SIZE(1);  // No events should be generated in the nominal case
     ASSERT_EVENTS_InvalidLength(0, static_cast<U16>(invalidLengthToken + 1),
                                 realDataLength);  // Event logs the size in bytes, so add 1 to length token
+}
+
+void SpacePacketDeframerTester ::testPacketShorterThanBuffer() {
+    // The buffer holds more than the packet declares: only the declared user data goes downstream
+    U8 payload[4] = {0xAA, 0xBB, 0xCC, 0xDD};
+    const U16 declaredLength = 2;
+    const U16 seqCount = 0x0012;  // most bits clear, where testControlFieldAccepted has them all set
+    ComCfg::FrameContext nullContext;
+
+    Fw::Buffer buffer = this->assemblePacket(static_cast<U16>(ComCfg::Apid::FW_PACKET_COMMAND), seqCount,
+                                             static_cast<U16>(declaredLength - 1), payload, sizeof(payload));
+
+    this->invoke_to_dataIn(0, buffer, nullContext);
+
+    ASSERT_from_dataOut_SIZE(1);
+    ASSERT_from_dataReturnOut_SIZE(0);
+    ASSERT_from_validateApidSeqCount_SIZE(1);
+    ASSERT_from_validateApidSeqCount(0, ComCfg::Apid::FW_PACKET_COMMAND, seqCount);
+    ASSERT_FROM_PORT_HISTORY_SIZE(2);  // dataOut + validateApidSeqCount
+    Fw::Buffer outBuffer = this->fromPortHistory_dataOut->at(0).data;
+    ASSERT_EQ(outBuffer.getData(), &this->m_packetBuffer[SpacePacketHeader::SERIALIZED_SIZE]);
+    ASSERT_EQ(outBuffer.getSize(), static_cast<Fw::Buffer::SizeType>(declaredLength));
+    ASSERT_EQ(this->fromPortHistory_dataOut->at(0).context.get_sequenceCount(), seqCount);
+    ASSERT_EVENTS_SIZE(0);
 }
 
 void SpacePacketDeframerTester ::testPacketDataLengthMaxU16Overflow() {
@@ -238,7 +267,7 @@ void SpacePacketDeframerTester ::testControlFieldAccepted(U16 pvn,
                                                           ComCfg::Apid::T expectedApid,
                                                           U16 sequenceFlags) {
     U8 payload[2] = {0xAA, 0xBB};
-    const U16 seqCount = 0x0012;
+    const U16 seqCount = 0x3FFF;  // every bit of the 14 bit field
     ComCfg::FrameContext nullContext;
 
     Fw::Buffer buffer = this->assemblePacketWithControlFields(
@@ -249,6 +278,7 @@ void SpacePacketDeframerTester ::testControlFieldAccepted(U16 pvn,
 
     ASSERT_from_dataOut_SIZE(1);
     ASSERT_from_validateApidSeqCount_SIZE(1);
+    ASSERT_from_validateApidSeqCount(0, expectedApid, seqCount);
     ASSERT_from_dataReturnOut_SIZE(0);
     ASSERT_FROM_PORT_HISTORY_SIZE(2);
     ASSERT_EQ(this->fromPortHistory_dataOut->at(0).context.get_apid(), expectedApid);

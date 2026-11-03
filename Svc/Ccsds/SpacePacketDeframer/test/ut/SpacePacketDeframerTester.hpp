@@ -46,6 +46,7 @@ class SpacePacketDeframerTester final : public SpacePacketDeframerGTestBase {
     void testDataReturnPassthrough();
     void testNominalDeframing();
     void testDeframingIncorrectLength();
+    void testPacketShorterThanBuffer();
     // void testDeframingIncorrectSeqCount();
 
     void testPacketDataLengthMaxU16Overflow();
